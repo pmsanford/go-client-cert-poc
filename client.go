@@ -9,6 +9,16 @@ import (
 	"net/http"
 )
 
+func doReq(client *http.Client, url string) {
+	resp, err := client.Get(url)
+	if err != nil {
+		fmt.Println(err)
+	}
+	contents, err := ioutil.ReadAll(resp.Body)
+	fmt.Printf("%s\n", string(contents))
+	fmt.Println("")
+}
+
 func main() {
 
 	// Load client cert
@@ -34,10 +44,7 @@ func main() {
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
 	client := &http.Client{Transport: transport}
 
-	resp, err := client.Get("https://localhost:8080/register?Name=Paul")
-	if err != nil {
-		fmt.Println(err)
-	}
-	contents, err := ioutil.ReadAll(resp.Body)
-	fmt.Printf("%s\n", string(contents))
+	doReq(client, "https://localhost:8080/register?Name=Paul")
+	doReq(client, "https://localhost:8080/dothings")
+	doReq(client, "https://localhost:8080/dothings")
 }

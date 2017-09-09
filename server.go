@@ -70,6 +70,12 @@ func ValidateCert(requsr User) (bool, string) {
 }
 
 func DoOp(w http.ResponseWriter, req *http.Request) {
+	user := ParseCert(req)
+	if ok, name := ValidateCert(*user); ok {
+		fmt.Fprintf(w, "Doing things with %s", name)
+	} else {
+		fmt.Fprintf(w, "Please register; no user found for cert with serial %s", user.serial)
+	}
 }
 
 func main() {
@@ -86,6 +92,7 @@ func main() {
 	}
 	db.Close()
 	http.HandleFunc("/register", HelloServer)
+	http.HandleFunc("/dothings", DoOp)
 
 	caCert, err := ioutil.ReadFile("client.crt")
 	if err != nil {
