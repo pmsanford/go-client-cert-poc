@@ -12,29 +12,36 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-func HelloServer(w http.ResponseWriter, req *http.Request) {
-	db, _ := sql.Open("sqlite3", "./reg.db")
-	defer db.Close()
-	serial := req.TLS.PeerCertificates[0].SerialNumber.String()
-	name := req.URL.Query()["Name"][0]
-	rows, err := db.Query("select name from registrations where serial = ?", serial)
+func OpenDb() (*sql.DB) {
+	db, err := sql.Open("sqlite3", "./reg.db")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer rows.Close()
-	if rows.Next() {
-		log.Println("Found a row")
-		var exname string
-		rows.Scan(&exname)
-		fmt.Fprintf(w, "Certificate with serial %s is already registered to %s", serial, exname)
+	return db
+}
+
+func HelloServer(w http.ResponseWriter, req *http.Request) {
+	user := ValidateCert(req)
+	if user != nil {
+		log.Printf("Found user %s", user.name)
+		fmt.Fprintf(w, "Certificate with serial %s is already registered to %s", user.serial, user.name)
 	} else {
 		log.Println("No row found")
-		_, err := db.Exec("insert into registrations (serial, name) values (?, ?)", serial, name)
+		db := OpenDb()
+		defer db.Close()
+		user = ParseCert(req)
+		_, err := db.Exec("insert into registrations (serial, name) values (?, ?)", user.serial, user.name)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Fprintf(w, "Registered %s with serial # %s", name, serial)
+		fmt.Fprintf(w, "Registered %s with serial # %s", user.name, user.serial)
 	}
+}
+
+func ParseCert(req *http.Request) *User {
+	serial := req.TLS.PeerCertificates[0].SerialNumber.String()
+	name := req.URL.Query()["Name"][0]
+	return &User { serial: serial, name: name }
 }
 
 type User struct {
@@ -43,10 +50,9 @@ type User struct {
 }
 
 func ValidateCert(req *http.Request) *User {
-	db, _ := sql.Open("sqlite3", "./reg.db")
+	db := OpenDb()
 	defer db.Close()
 	serial := req.TLS.PeerCertificates[0].SerialNumber.String()
-	name := req.URL.Query()["Name"][0]
 	rows, err := db.Query("select name from registrations where serial = ?", serial)
 	if err != nil {
 		log.Fatal(err)
