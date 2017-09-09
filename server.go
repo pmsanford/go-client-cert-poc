@@ -94,12 +94,14 @@ func main() {
 	http.HandleFunc("/register", HelloServer)
 	http.HandleFunc("/dothings", DoOp)
 
-	caCert, err := ioutil.ReadFile("client.crt")
+	caCertp, err := ioutil.ReadFile("paul.crt")
+	caCerte, err := ioutil.ReadFile("eric.crt")
 	if err != nil {
 		log.Fatal(err)
 	}
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
+	caCertPool.AppendCertsFromPEM(caCertp)
+	caCertPool.AppendCertsFromPEM(caCerte)
 
 	// Setup HTTPS client
 	tlsConfig := &tls.Config{
