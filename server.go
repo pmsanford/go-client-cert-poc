@@ -21,15 +21,14 @@ func OpenDb() (*sql.DB) {
 }
 
 func HelloServer(w http.ResponseWriter, req *http.Request) {
-	user := ValidateCert(req)
-	if user != nil {
-		log.Printf("Found user %s", user.name)
-		fmt.Fprintf(w, "Certificate with serial %s is already registered to %s", user.serial, user.name)
+	user := ParseCert(req)
+	if valid, regname := ValidateCert(*user); valid {
+		log.Printf("Found user %s", regname)
+		fmt.Fprintf(w, "Certificate with serial %s is already registered to %s", user.serial, regname)
 	} else {
 		log.Println("No row found")
 		db := OpenDb()
 		defer db.Close()
-		user = ParseCert(req)
 		_, err := db.Exec("insert into registrations (serial, name) values (?, ?)", user.serial, user.name)
 		if err != nil {
 			log.Fatal(err)
@@ -49,10 +48,10 @@ type User struct {
 	name string
 }
 
-func ValidateCert(req *http.Request) *User {
+func ValidateCert(requsr User) (bool, string) {
 	db := OpenDb()
 	defer db.Close()
-	serial := req.TLS.PeerCertificates[0].SerialNumber.String()
+	serial := requsr.serial
 	rows, err := db.Query("select name from registrations where serial = ?", serial)
 	if err != nil {
 		log.Fatal(err)
@@ -62,13 +61,12 @@ func ValidateCert(req *http.Request) *User {
 		log.Println("Found a row")
 		var exname string
 		rows.Scan(&exname)
-		return &User { serial: serial, name: exname }
+		return true, exname
 	}
-	return nil
+	return false, ""
 }
 
 func DoOp(w http.ResponseWriter, req *http.Request) {
-
 }
 
 func main() {
