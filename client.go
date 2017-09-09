@@ -19,10 +19,9 @@ func doReq(client *http.Client, url string) {
 	fmt.Println("")
 }
 
-func main() {
-
+func createClient(crtfile, keyfile string) *http.Client {
 	// Load client cert
-	cert, err := tls.LoadX509KeyPair("client.crt", "client.key")
+	cert, err := tls.LoadX509KeyPair(crtfile, keyfile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -42,9 +41,10 @@ func main() {
 	}
 	tlsConfig.BuildNameToCertificate()
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
-	client := &http.Client{Transport: transport}
+	return &http.Client{Transport: transport}
+}
 
-	doReq(client, "https://localhost:8080/register?Name=Paul")
-	doReq(client, "https://localhost:8080/dothings")
-	doReq(client, "https://localhost:8080/dothings")
+func main() {
+	paulclient := createClient("paul.crt", "paul.key")
+	doReq(paulclient, "https://localhost:8080/register?Name=Paul")
 }
