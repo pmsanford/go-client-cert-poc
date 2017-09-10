@@ -73,7 +73,7 @@ func anyKey() {
 	input.ReadRune()
 }
 
-func main() {
+func makecert() {
 	var err error
 
 	template := x509.Certificate{

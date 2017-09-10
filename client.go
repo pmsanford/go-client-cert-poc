@@ -44,7 +44,7 @@ func createClient(crtfile, keyfile string) *http.Client {
 	return &http.Client{Transport: transport}
 }
 
-func main() {
+func runclient() {
 	paulclient := createClient("paul.crt", "paul.key")
 	ericclient := createClient("eric.crt", "eric.key")
 	doReq(paulclient, "https://localhost:8080/register?Name=Paul")

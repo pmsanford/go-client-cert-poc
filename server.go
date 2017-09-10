@@ -78,7 +78,7 @@ func DoOp(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func main() {
+func runserver() {
 	os.Remove("./reg.db")
 	db, err := sql.Open("sqlite3", "./reg.db")
 	if err != nil {
