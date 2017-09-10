@@ -94,14 +94,14 @@ func runserver() {
 	http.HandleFunc("/register", HelloServer)
 	http.HandleFunc("/dothings", DoOp)
 
-	caCertp, err := ioutil.ReadFile("paul.crt")
-	caCerte, err := ioutil.ReadFile("eric.crt")
+	caCertRoot, err := ioutil.ReadFile("root.crt")
 	if err != nil {
 		log.Fatal(err)
 	}
 	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCertp)
-	caCertPool.AppendCertsFromPEM(caCerte)
+	if ok := caCertPool.AppendCertsFromPEM(caCertRoot); !ok {
+		log.Fatal("Couldn't append certs")
+	}
 
 	// Setup HTTPS client
 	tlsConfig := &tls.Config{
@@ -120,5 +120,5 @@ func runserver() {
 		TLSConfig: tlsConfig,
 	}
 
-	server.ListenAndServeTLS("server.crt", "server.key") //private cert
+	log.Fatal(server.ListenAndServeTLS("server.crt", "server.key")) //private cert
 }

@@ -27,7 +27,7 @@ func createClient(crtfile, keyfile string) *http.Client {
 	}
 
 	// Load CA cert
-	caCert, err := ioutil.ReadFile("server.crt")
+	caCert, err := ioutil.ReadFile("root.crt")
 	if err != nil {
 		log.Fatal(err)
 	}

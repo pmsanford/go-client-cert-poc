@@ -48,7 +48,7 @@ func finishCert(cert, rootCert *x509.Certificate, signingKey *rsa.PrivateKey) ([
 		rootCert = cert
 	}
 
-	derBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCert, &signingKey.PublicKey, signingKey)
+	derBytes, err := x509.CreateCertificate(rand.Reader, cert, rootCert, &priv.PublicKey, signingKey)
 	return derBytes, priv, err
 }
 
@@ -77,14 +77,16 @@ func writeCert(derBytes []byte, priv *rsa.PrivateKey, filename string) error {
 }
 
 func testCA() {
-	os.Remove("testroot.crt")
-	os.Remove("testroot.key")
-	os.Remove("testserv.crt")
-	os.Remove("testserv.key")
-	err := createRootCert("Test Org", "USA", "CA", "Mountain View", "Test Cert", "testroot", 365)
+	os.Remove("*.crt")
+	os.Remove("*.key")
+	err := createRootCert("Test Org", "USA", "CA", "Mountain View", "Test Cert", "root", 365)
 	if err != nil { log.Fatal(err) } else { log.Print("Created CA key") }
-	err = createServerCert("Test Org", "USA", "CA", "Mountain View", "localhost", "127.0.0.1", "testroot", "testserv", 365)
+	err = createServerCert("Test Org", "USA", "CA", "Mountain View", "localhost", "127.0.0.1", "root", "server", 365)
 	if err != nil { log.Fatal(err) } else { log.Print("Created Server key") }
+	err = createClientCert("Test Org", "USA", "CA", "Mountain View", "localhost", "127.0.0.1", "root", "paul", 365)
+	if err != nil { log.Fatal(err) } else { log.Print("Created Paul Client key") }
+	err = createClientCert("Test Org", "USA", "CA", "Mountain View", "localhost", "127.0.0.1", "root", "eric", 365)
+	if err != nil { log.Fatal(err) } else { log.Print("Created Eric Client key") }
 }
 
 func loadPem(filename string) (*pem.Block, error) {
@@ -112,10 +114,18 @@ func loadCertPublic(filename string) (*x509.Certificate, error) {
 }
 
 func createServerCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename string, daysValid int) error {
+	return createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename, daysValid, x509.ExtKeyUsageServerAuth)
+}
+
+func createClientCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename string, daysValid int) error {
+	return createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename, daysValid, x509.ExtKeyUsageClientAuth)
+}
+
+func createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename string, daysValid int, keyUsage x509.ExtKeyUsage) error {
 	template := createTemplate(organization, country, state, city, daysValid)
 	template.Subject.CommonName = dnsName
 	template.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
-	template.ExtKeyUsage = []x509.ExtKeyUsage { x509.ExtKeyUsageServerAuth }
+	template.ExtKeyUsage = []x509.ExtKeyUsage { keyUsage }
 	ipConverted := net.ParseIP(ipAddr)
 	template.IPAddresses = append(template.IPAddresses, ipConverted)
 
