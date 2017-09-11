@@ -1,6 +1,6 @@
 package main
 
 type CertPair struct {
-	cert []byte
-	key []byte
+	Cert []byte
+	Key []byte
 }

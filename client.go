@@ -11,7 +11,7 @@ import (
 	"net/http"
 )
 
-func register(client *http.Client, name string) {
+func register(client *http.Client, name string) *http.Client {
 	resp, err := client.Get(fmt.Sprintf("https://localhost:8080/register?Name=%s", name))
 	if err != nil {
 		log.Printf("Error registering %s: %s", name, err)
@@ -23,6 +23,8 @@ func register(client *http.Client, name string) {
 
 	var newcert CertPair
 	err = json.Unmarshal(cont, &newcert)
+
+	log.Printf("Cert len: %d key len: %d", len(newcert.Cert), len(newcert.Key))
 
 	if err != nil {
 		log.Printf("Couldn't unmarshal cert pair for %s", name)
@@ -36,25 +38,23 @@ func register(client *http.Client, name string) {
 	if err != nil {
 		log.Println("Couldn't open cert file.")
 	}
-	certOut.Write(newcert.cert)
+	certOut.Write(newcert.Cert)
 	certOut.Close()
 
-	keyOut, err := os.Create(certfilename)
+	keyOut, err := os.Create(keyfilename)
 	if err != nil {
 		log.Println("Couldn't open key file.")
 	}
-	keyOut.Write(newcert.key)
+	keyOut.Write(newcert.Key)
 	keyOut.Close()
 
 	clientcert, err := tls.LoadX509KeyPair(certfilename, keyfilename)
 	if err != nil {
-		log.Println("Couldn't load client cert")
-		return
+		log.Println("Couldn't load client cert:")
+		log.Println(err)
+		return nil
 	}
-	transport := client.Transport.(*http.Transport)
-	transport.TLSClientConfig.Certificates = []tls.Certificate{clientcert}
-	transport.TLSClientConfig.BuildNameToCertificate()
-	client.Transport = transport
+	return createClient(&clientcert)
 }
 
 func doReq(client *http.Client, url string) {
@@ -68,7 +68,7 @@ func doReq(client *http.Client, url string) {
 	log.Println("")
 }
 
-func createClient() *http.Client {
+func createClient(cert *tls.Certificate) *http.Client {
 	// Load CA cert
 	caCert, err := ioutil.ReadFile("root.crt")
 	if err != nil {
@@ -81,15 +81,19 @@ func createClient() *http.Client {
 	tlsConfig := &tls.Config{
 		RootCAs:      caCertPool,
 	}
+	if cert != nil {
+		tlsConfig.Certificates = []tls.Certificate{*cert}
+	}
 	tlsConfig.BuildNameToCertificate()
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
 	return &http.Client{Transport: transport}
 }
 
 func runclient() {
-	paulclient := createClient()
+	paulclient := createClient(nil)
 	//ericclient := createClient()
-	register(paulclient, "Paul")
+	paulclient = register(paulclient, "Paul")
+	doReq(paulclient, "https://localhost:8080/dothings")
 	/*
 	doReq(paulclient, "https://localhost:8080/register?Name=Paul")
 	doReq(ericclient, "https://localhost:8080/register?Name=Eric")

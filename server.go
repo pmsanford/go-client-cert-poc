@@ -1,8 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"strings"
+	"encoding/json"
 	"bytes"
 	"database/sql"
 	"crypto/tls"
@@ -23,6 +23,12 @@ func OpenDb() (*sql.DB) {
 	return db
 }
 
+func logErr(err error) {
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func HelloServer(w http.ResponseWriter, req *http.Request) {
 	user := ParseCert(req)
 	if valid, regname := ValidateCert(*user); valid {
@@ -32,12 +38,22 @@ func HelloServer(w http.ResponseWriter, req *http.Request) {
 		log.Println("No row found")
 		var certOut bytes.Buffer
 		var keyOut bytes.Buffer
-		serial, err := getClientCert("Test Org", "USA", "CA", "Mountain View", user.name, strings.Split(req.RemoteAddr, ":")[0], "root", 365, &certOut, &keyOut)
+		ipstr := req.RemoteAddr
+		if ipstr[0:1] == "[" {
+			ipstr = ipstr[1:]
+			ipstr = strings.Split(ipstr, "]")[0]
+		} else {
+			ipstr = strings.Split(ipstr, ":")[0]
+		}
+		serial, err := getClientCert("Test Org", "USA", "CA", "Mountain View", user.name, ipstr, "root", 365, &certOut, &keyOut)
+		logErr(err)
 		certBuf, err := ioutil.ReadAll(&certOut)
+		logErr(err)
 		keyBuf, err := ioutil.ReadAll(&keyOut)
+		logErr(err)
 		pair := CertPair {
-			cert: certBuf,
-			key: keyBuf,
+			Cert: certBuf,
+			Key: keyBuf,
 		}
 		db := OpenDb()
 		defer db.Close()
@@ -46,6 +62,7 @@ func HelloServer(w http.ResponseWriter, req *http.Request) {
 			log.Fatal(err)
 		}
 		jsonBytes, err := json.Marshal(pair)
+		logErr(err)
 		w.Write(jsonBytes)
 	}
 }
@@ -135,6 +152,8 @@ func runserver() {
 		Addr:      ":8080",
 		TLSConfig: tlsConfig,
 	}
+
+	log.Println("Starting server")
 
 	log.Fatal(server.ListenAndServeTLS("server.crt", "server.key")) //private cert
 }
