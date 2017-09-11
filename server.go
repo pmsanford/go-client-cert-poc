@@ -51,7 +51,10 @@ func HelloServer(w http.ResponseWriter, req *http.Request) {
 }
 
 func ParseCert(req *http.Request) *User {
-	serial := req.TLS.PeerCertificates[0].SerialNumber.String()
+	serial := ""
+	if len(req.TLS.PeerCertificates) > 0 { 
+		serial = req.TLS.PeerCertificates[0].SerialNumber.String()
+	}
 	name := ""
 	if names, ok := req.URL.Query()["Name"]; ok {
 		name = names[0]
