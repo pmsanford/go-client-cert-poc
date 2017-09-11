@@ -112,11 +112,16 @@ func DoOp(w http.ResponseWriter, req *http.Request) {
 }
 
 func runserver() {
-	os.Remove("./reg.db")
+	os.Remove("reg.db")
 	db, err := sql.Open("sqlite3", "./reg.db")
 	if err != nil {
 		fmt.Println(err)
 	}
+	os.Remove("root.crt")
+	os.Remove("root.key")
+	os.Remove("server.crt")
+	os.Remove("server.key")
+	genRoot()
 
 	query := "create table registrations (serial text not null primary key, name text); delete from registrations;"
 	_, err = db.Exec(query)
@@ -136,14 +141,8 @@ func runserver() {
 		log.Fatal("Couldn't append certs")
 	}
 
-	// Setup HTTPS client
 	tlsConfig := &tls.Config{
 		ClientCAs: caCertPool,
-		// NoClientCert
-		// RequestClientCert
-		// RequireAnyClientCert
-		// VerifyClientCertIfGiven
-		// RequireAndVerifyClientCert
 		ClientAuth: tls.RequestClientCert,
 	}
 	tlsConfig.BuildNameToCertificate()

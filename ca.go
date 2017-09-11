@@ -80,17 +80,13 @@ func writeCertToBuffers(derBytes []byte, priv *rsa.PrivateKey, certOut, keyOut i
 	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 }
 
-func testCA() {
+func genRoot() {
 	os.Remove("*.crt")
 	os.Remove("*.key")
 	err := createRootCert("Test Org", "USA", "CA", "Mountain View", "Test Cert", "root", 365)
 	if err != nil { log.Fatal(err) } else { log.Print("Created CA key") }
 	err = createServerCert("Test Org", "USA", "CA", "Mountain View", "localhost", "127.0.0.1", "root", "server", 365)
 	if err != nil { log.Fatal(err) } else { log.Print("Created Server key") }
-	err = createClientCert("Test Org", "USA", "CA", "Mountain View", "localhost", "127.0.0.1", "root", "paul", 365)
-	if err != nil { log.Fatal(err) } else { log.Print("Created Paul Client key") }
-	err = createClientCert("Test Org", "USA", "CA", "Mountain View", "localhost", "127.0.0.1", "root", "eric", 365)
-	if err != nil { log.Fatal(err) } else { log.Print("Created Eric Client key") }
 }
 
 func loadPem(filename string) (*pem.Block, error) {

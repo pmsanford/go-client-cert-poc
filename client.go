@@ -19,12 +19,9 @@ func register(client *http.Client, name string) *http.Client {
 	defer resp.Body.Close()
 
 	cont, err := ioutil.ReadAll(resp.Body)
-	log.Printf("Content length: %d", len(cont))
 
 	var newcert CertPair
 	err = json.Unmarshal(cont, &newcert)
-
-	log.Printf("Cert len: %d key len: %d", len(newcert.Cert), len(newcert.Key))
 
 	if err != nil {
 		log.Printf("Couldn't unmarshal cert pair for %s", name)
@@ -90,14 +87,17 @@ func createClient(cert *tls.Certificate) *http.Client {
 }
 
 func runclient() {
+	os.Remove("Paul.crt")
+	os.Remove("Paul.key")
+	os.Remove("Zac.crt")
+	os.Remove("Zac.key")
 	paulclient := createClient(nil)
-	//ericclient := createClient()
 	paulclient = register(paulclient, "Paul")
 	doReq(paulclient, "https://localhost:8080/dothings")
-	/*
-	doReq(paulclient, "https://localhost:8080/register?Name=Paul")
-	doReq(ericclient, "https://localhost:8080/register?Name=Eric")
+	zacclient := createClient(nil)
+	doReq(zacclient, "https://localhost:8080/dothings")
+	zacclient = register(zacclient, "Zac")
+	doReq(zacclient, "https://localhost:8080/dothings")
 	doReq(paulclient, "https://localhost:8080/dothings")
-	doReq(ericclient, "https://localhost:8080/dothings")
-	*/
+	doReq(zacclient, "https://localhost:8080/dothings")
 }
