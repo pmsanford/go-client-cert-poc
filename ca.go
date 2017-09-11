@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"io/ioutil"
 	"net"
 	"log"
@@ -64,16 +65,19 @@ func createRootCert(organization, country, state, city, name, filename string, d
 func writeCert(derBytes []byte, priv *rsa.PrivateKey, filename string) error {
 	certOut, err := os.Create(fmt.Sprintf("%s.crt", filename))
 	if err != nil { return err }
-	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	certOut.Close()
-
+	defer certOut.Close()
 	keyOut, err := os.OpenFile(fmt.Sprintf("%s.key", filename), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil { return err }
+	defer keyOut.Close()
 
-	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
-	keyOut.Close()
+	writeCertToBuffers(derBytes, priv, certOut, keyOut)
 
 	return nil
+}
+func writeCertToBuffers(derBytes []byte, priv *rsa.PrivateKey, certOut, keyOut io.Writer) {
+	pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
+
+	pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 }
 
 func testCA() {
@@ -114,14 +118,31 @@ func loadCertPublic(filename string) (*x509.Certificate, error) {
 }
 
 func createServerCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename string, daysValid int) error {
-	return createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename, daysValid, x509.ExtKeyUsageServerAuth)
+	return createAndWriteSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename, daysValid, x509.ExtKeyUsageServerAuth)
 }
 
 func createClientCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename string, daysValid int) error {
-	return createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename, daysValid, x509.ExtKeyUsageClientAuth)
+	return createAndWriteSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename, daysValid, x509.ExtKeyUsageClientAuth)
 }
 
-func createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename string, daysValid int, keyUsage x509.ExtKeyUsage) error {
+func getClientCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename string, daysValid int, certOut, keyOut io.Writer) (*big.Int, error) {
+	derBytes, priv, serial, err := createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, daysValid, x509.ExtKeyUsageClientAuth)
+	if err != nil { return nil, err }
+	writeCertToBuffers(derBytes, priv, certOut, keyOut)
+
+	return serial, nil
+}
+
+func createAndWriteSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, filename string, daysValid int, keyUsage x509.ExtKeyUsage) error {
+	derBytes, priv, _, err := createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename, daysValid, keyUsage)
+	if err != nil {
+		return err
+	}
+	err = writeCert(derBytes, priv, filename)
+
+	return err
+}
+func createSignedCert(organization, country, state, city, dnsName, ipAddr, rootCertFilename string, daysValid int, keyUsage x509.ExtKeyUsage) ([]byte, *rsa.PrivateKey, *big.Int, error) {
 	template := createTemplate(organization, country, state, city, daysValid)
 	template.Subject.CommonName = dnsName
 	template.KeyUsage = x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature
@@ -131,11 +152,9 @@ func createSignedCert(organization, country, state, city, dnsName, ipAddr, rootC
 
 	signingCert, signingKey, err := loadCertPrivate(rootCertFilename)
 
-	if err != nil { return err }
+	if err != nil { return nil, nil, nil, err }
 
-	derBytes, priv, err := finishCert(&template, signingCert, signingKey)
+	 derBytes, priv, err := finishCert(&template, signingCert, signingKey)
 
-	err = writeCert(derBytes, priv, filename)
-
-	return err
+	 return derBytes, priv, template.SerialNumber, err
 }

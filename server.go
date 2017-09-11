@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"strings"
+	"bytes"
 	"database/sql"
 	"crypto/tls"
 	"crypto/x509"
@@ -27,13 +30,23 @@ func HelloServer(w http.ResponseWriter, req *http.Request) {
 		fmt.Fprintf(w, "Certificate with serial %s is already registered to %s", user.serial, regname)
 	} else {
 		log.Println("No row found")
+		var certOut bytes.Buffer
+		var keyOut bytes.Buffer
+		serial, err := getClientCert("Test Org", "USA", "CA", "Mountain View", user.name, strings.Split(req.RemoteAddr, ":")[0], "root", 365, &certOut, &keyOut)
+		certBuf, err := ioutil.ReadAll(&certOut)
+		keyBuf, err := ioutil.ReadAll(&keyOut)
+		pair := CertPair {
+			cert: certBuf,
+			key: keyBuf,
+		}
 		db := OpenDb()
 		defer db.Close()
-		_, err := db.Exec("insert into registrations (serial, name) values (?, ?)", user.serial, user.name)
+		_, err = db.Exec("insert into registrations (serial, name) values (?, ?)", serial.String(), user.name)
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Fprintf(w, "Registered %s with serial # %s", user.name, user.serial)
+		jsonBytes, err := json.Marshal(pair)
+		w.Write(jsonBytes)
 	}
 }
 
